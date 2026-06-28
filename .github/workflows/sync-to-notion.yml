@@ -1,10 +1,11 @@
 name: 同步复习材料到 Notion
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'chaoxing-quiz-crawler/output/reviews/**/*.md'
-    branches: [main]
+    branches: [master]
 
 jobs:
   sync-to-notion:
