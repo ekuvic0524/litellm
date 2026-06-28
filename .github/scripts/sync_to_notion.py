@@ -1,21 +1,16 @@
 """
-将复习 .md 文件同步到 Notion 数据库
-通过 GitHub Actions 自动触发，只需配好以下 Secrets：
-  NOTION_TOKEN       - Notion Integration 的 Internal Integration Secret
-  NOTION_DATABASE_ID - 目标 Database 的 ID（URL 中 32位 字符串）
-
-使用前需在 Notion 侧：
-  1. https://www.notion.so/my-integrations → 新建 Integration → 复制 Secret
-  2. 在 Notion 创建 Database → Share → 添加上一步的 Integration
-  3. 从 Database URL 中复制 ID（32位 hex）
+将复习 .md 文件同步到 Notion（以父页面模式）
+工作方式：
+  1. 在 Notion 创建一个空白页面，Share 给 Integration
+  2. 把页面 URL 中 32 位 ID 设到 NOTION_DATABASE_ID
+  3. 每次运行：在该页面下创建/更新子页面，每个 .md 一个子页面
 """
 import os
 import json
-import hashlib
 import re
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN")
-DATABASE_ID = os.environ.get("NOTION_DATABASE_ID")
+PAGE_ID = os.environ.get("NOTION_PAGE_ID")
 
 REVIEWS_DIR = "chaoxing-quiz-crawler/output/reviews"
 
@@ -31,42 +26,47 @@ def req(method, path, body=None):
     url = f"https://api.notion.com/v1/{path.lstrip('/')}"
     r = requests.request(method, url, headers=HEADERS, json=body)
     if r.status_code not in (200, 201):
-        print(f"  [Notion API Error] {method} {path} -> {r.status_code}: {r.text[:200]}")
+        print(f"  [Notion API Error] {method} {path} -> {r.status_code}: {r.text[:300]}")
     r.raise_for_status()
     return r.json()
 
 
-def page_id_by_title(target_title):
-    """查询 Database 中是否已有同名页面，返回 page_id"""
-    resp = req("POST", f"databases/{DATABASE_ID}/query", {
-        "filter": {
-            "property": "标题",
-            "title": {"equals": target_title},
-        },
-    })
-    results = resp.get("results", [])
-    return results[0]["id"] if results else None
+def get_existing_children(page_id):
+    """获取父页面下的所有子页面（只查第一层 page）"""
+    existing = {}
+    cursor = None
+    while True:
+        params = {"page_size": 100}
+        if cursor:
+            params["start_cursor"] = cursor
+        resp = req("GET", f"blocks/{page_id}/children?page_size={params['page_size']}" +
+                   (f"&start_cursor={cursor}" if cursor else ""))
+        for block in resp.get("results", []):
+            if block.get("type") == "child_page":
+                title = block["child_page"]["title"]
+                existing[title] = block["id"]
+        if not resp.get("has_more"):
+            break
+        cursor = resp.get("next_cursor")
+    return existing
 
 
 def md_to_blocks(lines):
     """将 .md 内容转换为 Notion block 列表"""
     blocks = []
     i = 0
-    heading_counters = {"heading_1": 0, "heading_2": 0, "heading_3": 0}
+    total_lines = len(lines)
 
-    while i < len(lines):
+    while i < total_lines:
         line = lines[i]
         stripped = line.strip()
 
-        # 空行跳过
         if not stripped:
             i += 1
             continue
 
-        # 标题 H1: # xxx
         if stripped.startswith("# ") and not stripped.startswith("## "):
             text = stripped[2:].strip()
-            heading_counters["heading_1"] += 1
             blocks.append({
                 "object": "block",
                 "type": "heading_1",
@@ -77,10 +77,8 @@ def md_to_blocks(lines):
             i += 1
             continue
 
-        # 标题 H2: ## xxx
-        if stripped.startswith("## "):
+        if stripped.startswith("## ") and not stripped.startswith("### "):
             text = stripped[3:].strip()
-            heading_counters["heading_2"] += 1
             blocks.append({
                 "object": "block",
                 "type": "heading_2",
@@ -91,7 +89,6 @@ def md_to_blocks(lines):
             i += 1
             continue
 
-        # 标题 H3: ### xxx
         if stripped.startswith("### "):
             text = stripped[4:].strip()
             blocks.append({
@@ -104,7 +101,6 @@ def md_to_blocks(lines):
             i += 1
             continue
 
-        # 无序列表: - xxx
         if stripped.startswith("- "):
             text = stripped[2:].strip()
             blocks.append({
@@ -117,32 +113,46 @@ def md_to_blocks(lines):
             i += 1
             continue
 
-        # 分隔符 ---
         if stripped == "---":
             blocks.append({"object": "block", "type": "divider", "divider": {}})
             i += 1
             continue
 
-        # 表格: | xxx | yyy | (暂不处理完整表格，当普通文本)
+        # 表格行
         if stripped.startswith("|") and stripped.endswith("|"):
+            if re.match(r'^[\s\|\:\-\s]+$', stripped):
+                i += 1
+                continue
             blocks.append({
                 "object": "block",
                 "type": "paragraph",
                 "paragraph": {
-                    "rich_text": [{"type": "text", "text": {"content": stripped}}]
+                    "rich_text": [{"type": "text", "text": {"content": stripped[:2000]}}]
                 },
             })
             i += 1
             continue
 
-        # 普通段落 (合并相邻文本行)
+        # 答案隐藏块 ||xxx||
+        if "||" in stripped:
+            ans_clean = stripped.replace("||", "**")
+            blocks.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [{"type": "text", "text": {"content": ans_clean[:2000]}}]
+                },
+            })
+            i += 1
+            continue
+
+        # 普通段落（合并相邻行）
         para_lines = []
-        while i < len(lines) and lines[i].strip():
+        while i < total_lines and lines[i].strip():
             para_lines.append(lines[i].strip())
             i += 1
         content = " ".join(para_lines)
-        # 跳过纯数字行（表格的|---|那种）
-        if re.match(r'^[\s\|\:\-\s]+$', content):
+        if not content or re.match(r'^[\s\|\:\-\s]+$', content):
             continue
         blocks.append({
             "object": "block",
@@ -155,54 +165,61 @@ def md_to_blocks(lines):
     return blocks
 
 
-def sync_file(filepath):
-    """读取一个 .md 文件，创建/更新 Notion 页面"""
+def sync_file(filepath, existing_pages):
+    """读取 .md 文件，在 Notion 父页面下创建/更新子页面"""
     basename = os.path.basename(filepath)
     title = os.path.splitext(basename)[0]
 
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    name_line = ""
+    # 提取第一行 H1 作为子页面标题
+    page_title = title
     for line in lines:
-        if line.startswith("# ") or line.startswith("#"):
-            name_line = line.lstrip("#").strip()
+        s = line.strip()
+        if s.startswith("# ") and not s.startswith("## "):
+            page_title = s[2:].strip()
             break
-    page_title = name_line or title
 
     blocks = md_to_blocks(lines)
     if not blocks:
         print(f"  ⏭️  {title}: 空内容，跳过")
         return
 
-    existing_id = page_id_by_title(page_title)
+    # Notion 限制：blocks 每次最多 100 个，分批
+    block_chunks = [blocks[i:i+100] for i in range(0, len(blocks), 100)]
 
-    if existing_id:
-        # 更新已有页面：先删旧子 block，再追加新 block
-        children = req("GET", f"blocks/{existing_id}/children")
-        for child in children.get("results", []):
-            req("DELETE", f"blocks/{child['id']}")
-        req("PATCH", f"blocks/{existing_id}/children", {"children": blocks})
+    if title in existing_pages:
+        # 更新已有子页面：清空旧内容，写新内容
+        child_id = existing_pages[title]
+        old_blocks = req("GET", f"blocks/{child_id}/children")
+        for old in old_blocks.get("results", []):
+            req("DELETE", f"blocks/{old['id']}")
+        for chunk in block_chunks:
+            req("PATCH", f"blocks/{child_id}/children", {"children": chunk})
         print(f"  ✓ {title}: 已更新")
     else:
-        # 新建页面
-        body = {
-            "parent": {"database_id": DATABASE_ID},
-            "properties": {
-                "标题": {
-                    "title": [{"type": "text", "text": {"content": page_title}}]
-                }
-            },
-            "children": blocks,
-        }
-        req("POST", "pages", body)
+        # 新建子页面
+        for chunk in block_chunks:
+            body = {
+                "parent": {"page_id": PAGE_ID},
+                "properties": {
+                    "title": {"title": [{"type": "text", "text": {"content": page_title}}]}
+                },
+                "children": chunk,
+            }
+            # 第一块用 POST pages（创建页面），后续用 PATCH blocks/{id}/children
+            if chunk == block_chunks[0]:
+                resp = req("POST", "pages", body)
+            else:
+                req("PATCH", f"blocks/{resp['id']}/children", {"children": chunk})
         print(f"  ✓ {title}: 已创建")
 
 
 def main():
-    if not NOTION_TOKEN or not DATABASE_ID:
-        print("错误: 请设置 NOTION_TOKEN 和 NOTION_DATABASE_ID 环境变量")
-        print("在 GitHub 仓库 → Settings → Secrets and variables → Actions 中添加")
+    if not NOTION_TOKEN or not PAGE_ID:
+        print("错误: 请设置 NOTION_TOKEN 和 NOTION_PAGE_ID")
+        print("NOTION_PAGE_ID = Notion 页面的 32 位 ID")
         exit(1)
 
     if not os.path.isdir(REVIEWS_DIR):
@@ -215,10 +232,15 @@ def main():
         return
 
     print(f"发现 {len(mds)} 个文件，开始同步到 Notion...\n")
+
+    # 获取父页面下所有已有子页面
+    existing = get_existing_children(PAGE_ID)
+    print(f"父页面下已有 {len(existing)} 个子页面\n")
+
     for md_file in mds:
         print(f"处理: {md_file}")
         try:
-            sync_file(os.path.join(REVIEWS_DIR, md_file))
+            sync_file(os.path.join(REVIEWS_DIR, md_file), existing)
         except Exception as e:
             print(f"  ✗ 失败: {e}")
 
