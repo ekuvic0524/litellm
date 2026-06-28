@@ -1,0 +1,27 @@
+name: 同步复习材料到 Notion
+
+on:
+  push:
+    paths:
+      - 'chaoxing-quiz-crawler/output/reviews/**/*.md'
+    branches: [main]
+
+jobs:
+  sync-to-notion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 同步到 Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: python .github/scripts/sync_to_notion.py

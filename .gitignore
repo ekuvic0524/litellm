@@ -1,0 +1,57 @@
+__pycache__/
+*.pyc
+.env
+.image_cache/
+chaoxing-quiz-crawler/output/.image_cache/
+chaoxing-quiz-crawler/output/*.zip
+chaoxing-quiz-crawler/output/error.log
+chaoxing-quiz-crawler/output/checkpoint.json
+chaoxing-quiz-crawler/output/chapter*/
+.easyocr_models/
+.claude/
+.DS_Store
+thumbs.db
+
+# 临时分析脚本
+analyze_*.py
+check_*.py
+access_work*.py
+test_*.py
+scan_*.py
+debug_*.py
+extract_*.py
+find_*.py
+inspect_*.py
+parse_*.py
+reanalyze_*.py
+scan_*.py
+generate_*.py
+ocr_*.py
+pdf_*.py
+count_check.py
+verify_output.py
+verify_bundle.py
+
+# 中间文件
+*.html
+*.docx
+*.pdf
+*.png
+*.yaml
+work_list_full.html
+studentcourse_full.html
+course_page.html
+chapter_study.html
+micro_data.html
+content_list.json
+shigang_data.json
+doc_content.json
+backup.txt
+config.yaml
+work_task.html
+work_list.html
+
+# 其他项目
+组织胚胎学/
+中国近现代史纲要/
+"中国近现代史纲要(2023年版) (*.pdf"

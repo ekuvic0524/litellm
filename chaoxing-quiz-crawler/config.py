@@ -1,0 +1,36 @@
+"""配置信息"""
+import os
+
+COOKIE = (
+    'fid=414; xxtenc=960431b2a87604e41de417b4a828bfaf; '
+    'wfwfid=414; workRoleBenchId=280206; siteType=4; '
+    'wfwEnc=6DB0BF11B66E2B0F86754FE8BF24CED4; workbenchNewId=19974; '
+    'source=num2; _uid=404591390; UID=404591390; '
+    'k8s=1782652642.025.1204.980315; '
+    'jrose=153CB97E1713744AF337887B4AC294DD.mooc2-2409471987-kpwr4; '
+    'route=ac9a7739314fa6817cbac7e56032374b; '
+    'jrosehead=389E8E8E7578D43906CBA7C09E413156.mooc-portal-2961312520-gm3sf; '
+    '_d=1782652803579; '
+    'vc3=N9f9FCTlE9z9Vswv1HQhVBNUuqBEHA4q3X%2FGaCcHR6tKu2mEZD%2BA%2BSLvgBh12vW3xcmI%2BpDHCzf4OYuHwDruEliw6iwWqmSF1FBNiRTAdqbta%2FuOVFGgrydyO8R7iwoQB2HiQ86%2Fpz%2FSOIcCUSmE3u%2BZ%2FnYbDFIjCAGXMSn71RI%3Dd5223071501fe56f678b92728aaa2b70; '
+    'uf=d9387224d3a6095b490ab4274883252d4edbd0700ded650dc42208843ed2e28864ff829fe53f56c4040731c4ef8e891a347996d1ff33a07f9b0594e13f4b452fa995cca83579031aa94b593de5d847e41b7af805b208d61860a524d218f637f5803567459b883d8c7d340eb2eee784669bfe783f3784228734e8595b0aa4d57f8568b42a5f207697344824b271bd9210b9db9b2097fb87633f7e55a6b43826face93cca83e39941c7d8978ccf49f75d0577a9aa095a87b2c; '
+    'cx_p_token=032d8f025db8d66297e1c7adf3b6527d; '
+    'p_auth_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI0MDQ1OTEzOTAiLCJsb2dpblRpbWUiOjE3ODI2NTI4MDM1ODMsImV4cCI6MTc4MzI1NzYwM30.BguMUu-Gqzx8oUpwNgG-PitBgOTFwEiKu9WhwcviW-w; '
+    'DSSTASH_LOG=C_38-UN_263-US_404591390-T_1782652803583; '
+    'spaceFid=414; spaceRoleId=3; tl=1'
+)
+
+COURSE_ID = '240635420'
+CLASS_ID = '140119573'
+CPI = '485202988'
+WORK_ENC = '1556c45bfdff61682974ca0a4cfefbb8'
+
+WORK_LIST_URL = 'https://mooc1.chaoxing.com/mooc2/work/list'
+WORK_TASK_URL = 'https://mooc1.chaoxing.com/mooc-ans/mooc2/work/task'
+
+# 重试配置
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # 秒
+
+# 项目根目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(BASE_DIR, 'output')
