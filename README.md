@@ -61,19 +61,18 @@ git push
 3. 名称填 `Litellm Sync`，关联你的工作空间
 4. 提交后复制 **Internal Integration Secret**（以 `ntn_` 开头）
 
-### Step B: 创建 Notion Database
+### Step B: 创建 Notion 页面
 
-1. 在 Notion 中新建一个 **Database**（建议用 Table 视图）
-2. Database 至少包含一个 `标题` 列（默认就有）
-3. 点击右上角 **Share** → **Add connections** → 选择 `Litellm Sync`
+1. 在 Notion 中新建一个**空白页面**（随便起名，比如"有机化学复习"）
+2. 右上角 **Share** → 添加 **Litellm Sync**
 
-### Step C: 获取 Database ID
+### Step C: 获取页面 ID
 
-1. 打开 Database 页面
-2. 从 URL 中复制 32 位十六进制 ID：
+1. 打开刚才那个页面
+2. 从浏览器 URL 中复制 32 位 ID：
    ```
-   https://www.notion.so/workspace/abc123def456abc123def456abc123def?v=xxx
-                                          └─ Database ID ─┘
+   https://www.notion.so/workspace/38d4330f76c3812b95ebdb7f04b1d46f
+                                  └── 32位页面 ID ──┘
    ```
 
 ### Step D: 配置 GitHub Secrets
@@ -84,7 +83,7 @@ git push
 | Secret | 值 |
 |--------|---|
 | `NOTION_TOKEN` | 你的 Integration Secret（`ntn_...`）|
-| `NOTION_DATABASE_ID` | 32 位 Database ID |
+| `NOTION_PAGE_ID` | 32 位页面 ID |
 
 搞定。下次 `git push` 后自动同步。
 
