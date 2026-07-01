@@ -210,13 +210,16 @@ def sync_file(filepath, existing_pages):
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    # 提取第一行 H1 作为子页面标题
+    # 提取第一行 H1 作为子页面标题（用于匹配 Notion 已有页面）
     page_title = title
     for line in lines:
         s = line.strip()
         if s.startswith("# ") and not s.startswith("## "):
             page_title = s[2:].strip()
             break
+
+    # 用中文页面标题匹配已有子页面，而不是用文件名
+    match_key = page_title
 
     blocks = md_to_blocks(lines)
     if not blocks:
@@ -228,11 +231,11 @@ def sync_file(filepath, existing_pages):
 
     # 统一策略：有则先删再新建，避免块管理问题
     page_id = None
-    if title in existing_pages:
-        page_id = existing_pages[title]
+    if match_key in existing_pages:
+        page_id = existing_pages[match_key]
         # 先归档删除旧子页面
         req("DELETE", f"blocks/{page_id}")
-        print(f"  ~ 删除旧页面: {title}")
+        print(f"  ~ 删除旧页面: {match_key}")
 
     # 新建子页面（第一块内联，后续追加）
     page_id = None
@@ -250,7 +253,7 @@ def sync_file(filepath, existing_pages):
         else:
             req("PATCH", f"blocks/{page_id}/children", {"children": chunk})
 
-    action = "已更新" if title in existing_pages else "已创建"
+    action = "已更新" if match_key in existing_pages else "已创建"
     print(f"  ✓ {title}: {action}")
 
 
